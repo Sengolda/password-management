@@ -1,4 +1,6 @@
 import sqlite3
+import requests
+from hashlib import sha256
 
 def connect():
     return sqlite3.connect("passwords.db")
@@ -58,7 +60,7 @@ def main():
             else:
                 print("Your in.")
                 user_in3 = input(
-                    "Would you like to see your passwords or make a new one?\n`m` for make\n`p` to see your passwords")
+                    "Would you like to see your passwords or make a new one?\n`m` for make\n`p` to see your passwords\nuse `g` to generate a new one\u200b \u2002")
                 if user_in3 == "p":
                     conn = connect()
                     c = conn.cursor()
@@ -81,5 +83,23 @@ def main():
                     new_passwords = f"{password},{current_passwords}"
                     c.execute("UPDATE users SET passwords = ? WHERE user_name = ?", (new_passwords, user_in2))
                     conn.commit()
+                
+                if user_in3 == "g":
+                    conn = connect()
+                    c = conn.cursor()
+
+
+                    res = requests.get("https://api.quotable.io/random")
+                    json_data = res.json()
+                    to_hash = json_data['content']
+                    hashed_password = sha256(to_hash.encode())
+                    current_passwords = c.execute("SELECT passwords FROM users WHERE user_name = ?", (user_in2,)).fetchall()
+                    current_passwords = current_passwords[0]
+                    current_passwords = ','.join(current_passwords)
+                    new_passwords = f"{hashed_password.hexdigest()},{current_passwords}"
+                    c.execute("UPDATE users SET passwords = ? WHERE user_name = ?", (new_passwords, user_in2))
+                    conn.commit()
+                    print(f"Your new generated password is: {hashed_password.hexdigest()}")
+
 
 main()
