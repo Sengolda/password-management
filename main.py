@@ -1,9 +1,13 @@
 import sqlite3
-import requests
+import secrets
 from hashlib import sha256
+from rich import print
+from rich.table import Table
+
 
 def connect():
     return sqlite3.connect("passwords.db")
+
 
 def store_passwords(user, master_password):
     try:
@@ -17,39 +21,39 @@ def store_passwords(user, master_password):
     except (Exception,):
         return "You already made an account."
 
+
 def get_password(user):
-        conn = connect()
-        c = conn.cursor()
-        sql = """SELECT master_password FROM users WHERE user_name = ?"""
-        to_select = (user,)
-        c.execute(sql, to_select)
-        rows = c.fetchone()
-        try:
-            main_row = rows[0]
-        except Exception as e:
-            print(e)
-            return "You do not have an account."
-        else:
-            return main_row
+    conn = connect()
+    c = conn.cursor()
+    sql = """SELECT master_password FROM users WHERE user_name = ?"""
+    to_select = (user,)
+    c.execute(sql, to_select)
+    rows = c.fetchone()
+    try:
+        main_row = rows[0]
+    except Exception as e:
+        print(e)
+        return "You do not have an account."
+    else:
+        return main_row
 
 
 def main():
     print("Hi welcome")
-    print(r'Do u have an account? (y\n)')
-    user_in = input('> ')
+    print(r"Do you have an account? (y\n)")
+    user_in = input("> ")
     if user_in == "n":
-        user = input('> what would you like your user name to be.')
-        password = input('> what would you like your master password to be.')
+        user = input("> what would you like your user name to be.")
+        password = input("> what would you like your master password to be.")
         result = store_passwords(user, password)
         if result is True:
-            print("Nice you made your account.")
-    
+            print("[green]Nice you made your account.[/green]")
+
         if result == "You already made an account.":
-            print(result)
-    
+            print(f"[red]{result}[/red]")
 
     if user_in == "y":
-        user_in2 = input('What is your username?')
+        user_in2 = input("What is your username?")
         user = get_password(user_in2)
         if user == "You do not have an account.":
             print(user)
@@ -60,42 +64,52 @@ def main():
             else:
                 print("Your in.")
                 user_in3 = input(
-                    "Would you like to see your passwords or make a new one?\n`m` for make\n`p` to see your passwords\nuse `g` to generate a new one\u200b \u2002")
+                    "Would you like to see your passwords or make a new one?\n`m` for make\n`p` to see your passwords\nuse `g` to generate a new one\u200b \u2002"
+                )
                 if user_in3 == "p":
                     conn = connect()
                     c = conn.cursor()
                     to_insert = (user_in2,)
                     e = c.execute("SELECT passwords FROM users WHERE user_name = ?", to_insert)
                     rows = e.fetchall()
-                    #print(rows)
-                    #print(user_in2 + "e")
-                    row_dict = {"passwords": v[0].split(',') for v in rows}
-                    print(' \n'.join(row_dict.get("passwords")))
-                
+                    row_dict = {"passwords": v[0].split(",") for v in rows}
+                    passwords = row_dict.get("passwords")
+                    for val in passwords:
+                        if not val:
+                            passwords.remove(val)
+
+                    table = Table(title="Passwords")
+                    table.add_column("Passwords", style="cyan")
+                    print("\n\n")
+                    for password in passwords:
+                        table.add_row(password)
+                    print(table)
+
                 if user_in3 == "m":
                     conn = connect()
                     c = conn.cursor()
-                    
+
                     password = input("What would you like your password to be?")
-                    current_passwords = c.execute("SELECT passwords FROM users WHERE user_name = ?", (user_in2,)).fetchall()
+                    current_passwords = c.execute(
+                        "SELECT passwords FROM users WHERE user_name = ?", (user_in2,)
+                    ).fetchall()
                     current_passwords = current_passwords[0]
-                    current_passwords = ','.join(current_passwords)
+                    current_passwords = ",".join(current_passwords)
                     new_passwords = f"{password},{current_passwords}"
                     c.execute("UPDATE users SET passwords = ? WHERE user_name = ?", (new_passwords, user_in2))
                     conn.commit()
-                
+
                 if user_in3 == "g":
                     conn = connect()
                     c = conn.cursor()
 
-
-                    res = requests.get("https://api.quotable.io/random")
-                    json_data = res.json()
-                    to_hash = json_data['content']
+                    to_hash = secrets.token_urlsafe(64)
                     hashed_password = sha256(to_hash.encode())
-                    current_passwords = c.execute("SELECT passwords FROM users WHERE user_name = ?", (user_in2,)).fetchall()
+                    current_passwords = c.execute(
+                        "SELECT passwords FROM users WHERE user_name = ?", (user_in2,)
+                    ).fetchall()
                     current_passwords = current_passwords[0]
-                    current_passwords = ','.join(current_passwords)
+                    current_passwords = ",".join(current_passwords)
                     new_passwords = f"{hashed_password.hexdigest()},{current_passwords}"
                     c.execute("UPDATE users SET passwords = ? WHERE user_name = ?", (new_passwords, user_in2))
                     conn.commit()
